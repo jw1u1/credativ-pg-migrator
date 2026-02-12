@@ -1,0 +1,113 @@
+Source Sybase ASE trigger code:
+
+CREATE TRIGGER dbo.tr_validity_duration_defaults_i
+on ccd.dbo.validity_duration_defaults
+for insert
+as
+
+begin
+	-- declare local variables */
+    declare @ts_init        datetime
+    declare @loginname      univarchar(15)
+
+    -- get current system time and login role and login name */
+    select @ts_init     = getdate(),
+           @loginname   = substring(suser_name(), 1, 15)
+
+
+    -- INSERT INTO HIS TABLE
+    insert into ccd.dbo.his_validity_duration_defaults(his_ts_init
+                                                   ,his_login_id
+                                                   ,his_change_type
+                                                   ,validity_duration_defaults_id
+                                                   ,permission_target_id
+                                                   ,permission_status_id
+                                                   ,duration_in_months
+                                                   ,description
+                                                   ,valid_from
+                                                   ,valid_to
+                                                   ,executor
+                                                   ,ts_init
+                                                   ,ts_update
+     )
+     select @ts_init
+           ,@loginname
+           ,'I'
+           ,validity_duration_defaults_id
+           ,permission_target_id
+           ,permission_status_id
+           ,duration_in_months
+           ,description
+           ,valid_from
+           ,valid_to
+           ,executor
+           ,ts_init
+           ,ts_update
+    from inserted
+
+    if(@@error <> 0)
+    begin
+        -- error occured
+       rollback trigger with raiserror 99999 'tr_validity_duration_defaults_i: Error inserting history entry'
+    end
+    -- END HIS TABLE
+
+    return
+
+end
+
+
+Converted PostgreSQL trigger code:
+
+CREATE OR REPLACE FUNCTION ccd.tr_validity_duration_defaults_i_func()
+RETURNS trigger AS $$
+DECLARE
+	locvar_ts_init        TIMESTAMP;
+	locvar_loginname      VARCHAR(15);
+BEGIN
+
+    /* get current system time and login role and login name */
+    locvar_ts_init     = CURRENT_TIMESTAMP;
+    locvar_loginname   = current_user;
+
+    /* INSERT INTO HIS TABLE */
+    insert into ccd.dbo.his_validity_duration_defaults(his_ts_init
+                                                   ,his_login_id
+                                                   ,his_change_type
+                                                   ,validity_duration_defaults_id
+                                                   ,permission_target_id
+                                                   ,permission_status_id
+                                                   ,duration_in_months
+                                                   ,description
+                                                   ,valid_from
+                                                   ,valid_to
+                                                   ,[executor]
+                                                   ,ts_init
+                                                   ,ts_update
+     )
+     select locvar_ts_init
+           ,locvar_loginname
+           ,'I'
+           ,NEW.validity_duration_defaults_id
+           ,NEW.permission_target_id
+           ,NEW.permission_status_id
+           ,NEW.duration_in_months
+           ,NEW.description
+           ,NEW.valid_from
+           ,NEW.valid_to
+           ,NEW.executor
+           ,NEW.ts_init
+           ,NEW.ts_update;
+
+	RETURN NEW;
+
+EXCEPTION
+    WHEN OTHERS THEN
+       RAISE EXCEPTION 'tr_validity_duration_defaults_i: Error inserting history entry';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_validity_duration_defaults_i
+AFTER INSERT ON "ccd"."his_validity_duration_defaults"
+FOR EACH ROW
+EXECUTE FUNCTION ccd.tr_validity_duration_defaults_i_func();

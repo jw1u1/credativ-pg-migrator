@@ -1,0 +1,124 @@
+Source Sybase ASE code for acc2035c_getVoiceFile:
+
+CREATE PROCEDURE dbo.acc2035c_getVoiceFile
+(
+	@propertyTypeId numeric(10,0),
+	@customer_id    numeric(10,0),
+	@value          univarchar(255),
+	@voiceFileId    univarchar(10)  out,
+	@error_code     int             out,
+	@error_text     univarchar(255) out
+)
+as
+begin
+
+	declare
+		@vorhanden univarchar(10),
+		@unbekannt univarchar(10),
+		@ausdruecklicheEinwilligungTelefonisch univarchar(10),
+		@voiceFileValue univarchar(255),
+		@voiceFileType numeric(10,0)
+
+	select
+		@vorhanden = 'vorhanden',
+		@unbekannt = 'unbekannt',
+		@ausdruecklicheEinwilligungTelefonisch = '10',
+		@voiceFileType = 124
+
+    select
+    	@voiceFileId = null
+
+    if(@value = @ausdruecklicheEinwilligungTelefonisch and (@propertyTypeId in (117, 118, 119, 120)))
+    begin
+
+        select @voiceFileValue = value
+        from ccd.dbo.rel_customer_customerproperty
+        where customer_id = @customer_id
+        and customerproperty_id in (select customerproperty_id
+                                    from ccd.dbo.customerproperty
+                                    where customerpropertytype_id = @voiceFileType)
+
+        if (@@error != 0)
+	    begin
+	        select @error_code = 600
+	              ,@error_text  = 'getVoiceFile: Error selecting voice file information'
+	        return 1
+	    end
+
+
+        if(lower(@voiceFileValue) = 'ja')
+			select @voiceFileId = @vorhanden
+		else
+    		select @voiceFileId = @unbekannt
+
+
+    end
+    else
+    begin
+		select @voiceFileId = null
+	end
+
+
+	return 0
+end
+
+
+Converted PostgreSQL code for acc2035c_getVoiceFile:
+
+CREATE OR REPLACE FUNCTION ccd.acc2035c_getVoiceFile(
+	p_propertyTypeId NUMERIC(10,0),
+	p_customer_id    NUMERIC(10,0),
+	p_value          VARCHAR(255),
+	p_voiceFileId    VARCHAR(10)  out,
+	p_error_code     INTEGER      out,
+	p_error_text     VARCHAR(255) out)
+RETURNS RECORD AS $$
+DECLARE
+    locvar_vorhanden VARCHAR(10);
+    locvar_unbekannt VARCHAR(10);
+    locvar_ausdruecklicheEinwilligungTelefonisch VARCHAR(10);
+    locvar_voiceFileValue VARCHAR(255);
+    locvar_voiceFileType NUMERIC(10,0);
+BEGIN
+
+	locvar_vorhanden := 'vorhanden';
+	locvar_unbekannt := 'unbekannt';
+	locvar_ausdruecklicheEinwilligungTelefonisch := '10';
+	locvar_voiceFileType := 124;
+
+	p_voiceFileId := null;
+
+    if(p_value = locvar_ausdruecklicheEinwilligungTelefonisch and (p_propertyTypeId in (117, 118, 119, 120))) then
+	    begin
+
+        select value INTO locvar_voiceFileValue
+		from rel_customer_customerproperty
+        where customer_id = p_customer_id
+        and customerproperty_id in (select customerproperty_id
+                                    from customerproperty
+                                    where customerpropertytype_id = locvar_voiceFileType);
+
+        Exception when others THEN
+		begin
+	        p_error_code := 600;
+	        p_error_text  = 'getVoiceFile: Error selecting voice file information';
+	        RETURN 1;
+		end;
+
+		end;
+
+        if(lower(locvar_voiceFileValue) = 'ja') then
+			p_voiceFileId := locvar_vorhanden;
+		else
+    		p_voiceFileId := locvar_unbekannt;
+		end if;
+
+    ELSE
+	begin
+		p_voiceFileId := null;
+	end;
+	end if;
+
+	RETURN 0;
+END;
+$$ LANGUAGE plpgsql;
